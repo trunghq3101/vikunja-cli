@@ -5,10 +5,10 @@ export type Detail = 'list' | 'detail';
 export type Trim = (item: Obj) => Obj;
 
 export const ZERO_DATE = '0001-01-01T00:00:00Z';
-const ZERO_DATE_PREFIX = /^0001-01-01T/;
+const ZERO_DATE_MATCH = /^0001-01-01T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 
 export function normalizeDates<T>(value: T): T {
-  if (typeof value === 'string' && ZERO_DATE_PREFIX.test(value)) return null as T;
+  if (typeof value === 'string' && ZERO_DATE_MATCH.test(value)) return null as T;
   if (Array.isArray(value)) return value.map((item) => normalizeDates(item)) as T;
   if (value !== null && typeof value === 'object') {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, normalizeDates(item)])) as T;

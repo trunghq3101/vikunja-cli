@@ -31,6 +31,10 @@ describe('normalizeDates', () => {
       }),
     ).toEqual({ a: null, b: null, c: '2026-09-15T10:00:00+07:00', list: [{ d: null }], n: 0, s: null });
   });
+
+  it('leaves strings that merely start with the zero-date prefix unchanged', () => {
+    expect(normalizeDates('0001-01-01T is not a date')).toBe('0001-01-01T is not a date');
+  });
 });
 
 describe('trimmers', () => {

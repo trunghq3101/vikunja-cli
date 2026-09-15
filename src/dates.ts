@@ -72,6 +72,9 @@ export function parseDue(input: string, allowNone: boolean): string | null {
     throw invalid(input);
   }
   const offset = OFFSET_DATETIME.exec(input);
-  if (offset && isValidOffsetDatetime(offset)) return input;
+  if (offset && isValidOffsetDatetime(offset)) {
+    // Go's RFC 3339 parsing needs seconds; insert :00 when the input omitted them.
+    return offset[6] === undefined ? `${input.slice(0, 16)}:00${input.slice(16)}` : input;
+  }
   throw invalid(input);
 }
