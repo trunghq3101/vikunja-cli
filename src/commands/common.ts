@@ -1,7 +1,7 @@
 import type { Command } from 'commander';
 import type { Query, VikunjaClient } from '../client';
 import type { ApiOptions } from '../context';
-import { usageError } from '../errors';
+import { CliError, usageError } from '../errors';
 import { shapeList, type Obj, type Trim } from '../output';
 
 export const MARKDOWN = { format: 'markdown' };
@@ -69,6 +69,24 @@ export async function listAndShape(
   }
   const res = await client.listPage<Obj>(path, { ...query, page: params.page, per_page: params.perPage });
   return shapeList(res, params.full, trim);
+}
+
+// GET /user needs the token scope `other: ["user"]`; a 401 here is usually that missing
+// permission rather than a plain invalid/expired token, so whoami and profile add both
+// point the user at the fix instead of the generic 401 detail from the client.
+export async function getCurrentUser(client: VikunjaClient): Promise<Obj> {
+  try {
+    return await client.request<Obj>('GET', '/user');
+  } catch (err) {
+    if (err instanceof CliError && err.info.status === 401) {
+      throw new CliError(3, err.info.title, {
+        status: 401,
+        detail:
+          'grant this token the `user` permission (Other group) in Vikunja: Settings → API Tokens, or Settings → Bot Users for bot tokens',
+      });
+    }
+    throw err;
+  }
 }
 
 // A PATCH round-trips the whole resource, so the markdown header is only safe when the

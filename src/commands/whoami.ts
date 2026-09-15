@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 import { apiContext, print, type ApiOptions, type Deps } from '../context';
-import { normalizeDates, type Obj } from '../output';
+import { getCurrentUser } from './common';
+import { normalizeDates } from '../output';
 
 export function registerWhoami(program: Command, deps: Deps): void {
   program
@@ -10,7 +11,7 @@ export function registerWhoami(program: Command, deps: Deps): void {
     .option('--full', 'print the raw /user object instead of the summary')
     .action(async (opts: ApiOptions) => {
       const { client, identity, connection } = await apiContext(deps, opts);
-      const user = await client.request<Obj>('GET', '/user');
+      const user = await getCurrentUser(client);
       if (opts.full) {
         print(deps, { profile: identity.profile, url: connection.url, user: normalizeDates(user) });
         return;

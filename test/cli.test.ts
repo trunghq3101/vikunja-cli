@@ -69,4 +69,13 @@ describe('whoami', () => {
       user: { id: 7, username: 'trung', created: null },
     });
   });
+
+  it('a 401 from /user (e.g. missing the user permission) is exit 3 with a permission hint', async () => {
+    const h = await harness();
+    h.reply(jsonResponse(401, { code: 11, message: 'missing, malformed, expired or otherwise invalid token provided' }, 'application/json'));
+    const r = await h.run('whoami');
+    expect(r.code).toBe(3);
+    expect(r.err.title).toBe('Vikunja rejected the token for profile `me`');
+    expect(r.err.detail).toContain('`user` permission');
+  });
 });

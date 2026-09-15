@@ -1,9 +1,9 @@
 import type { Command } from 'commander';
 import { VikunjaClient } from '../client';
+import { getCurrentUser } from './common';
 import { loadConfig, PROFILE_NAME, profileAccount, resolveConnection, saveConfig, type ConfigFile } from '../config';
 import { print, type Deps } from '../context';
 import { CliError, usageError } from '../errors';
-import type { Obj } from '../output';
 
 function notFound(name: string): CliError {
   return new CliError(3, `profile \`${name}\` not found`, { detail: 'run `vikunja profile list` to see configured profiles' });
@@ -25,7 +25,7 @@ export function registerProfile(program: Command, deps: Deps): void {
       if (!token) throw usageError('token is required');
 
       const client = new VikunjaClient({ connection, token, profile: name, fetch: deps.fetch });
-      const user = await client.request<Obj>('GET', '/user');
+      const user = await getCurrentUser(client);
 
       await deps.keychain.set(profileAccount(name), token);
       const defaultProfile = cfg.default_profile ?? name;

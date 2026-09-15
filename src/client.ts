@@ -59,14 +59,14 @@ function isCloudflareRejection(res: Response): boolean {
   }
   const type = res.headers.get('content-type') ?? '';
   if (type.includes('text/html')) return true;
-  return res.status === 403 && !type.includes('application/problem+json');
+  return res.status === 403 && !type.includes('json');
 }
 
 async function apiError(res: Response): Promise<CliError> {
   const text = await res.text();
   try {
-    const problem = JSON.parse(text) as { title?: string; detail?: string; errors?: unknown[] | null };
-    return new CliError(1, problem.title ?? `HTTP ${res.status}`, {
+    const problem = JSON.parse(text) as { title?: string; message?: string; detail?: string; errors?: unknown[] | null };
+    return new CliError(1, problem.title ?? problem.message ?? `HTTP ${res.status}`, {
       status: res.status,
       detail: problem.detail,
       errors: problem.errors ?? undefined,
@@ -110,7 +110,18 @@ export class VikunjaClient {
 
     if (isCloudflareRejection(res)) throw new CliError(3, CLOUDFLARE_REJECTED, { status: res.status });
     if (res.status === 401) {
-      throw new CliError(3, `Vikunja token for profile \`${profile ?? '(none)'}\` is invalid or expired`, { status: 401 });
+      const text = await res.text();
+      let message: string | undefined;
+      try {
+        message = (JSON.parse(text) as { message?: string }).message;
+      } catch {
+        // non-JSON body: fall back to the generic detail below
+      }
+      const generic = 'the token may be invalid, expired, or missing a permission for this endpoint';
+      throw new CliError(3, `Vikunja rejected the token for profile \`${profile ?? '(none)'}\``, {
+        status: 401,
+        detail: message ? `${message} — ${generic}` : generic,
+      });
     }
     if (!res.ok) throw await apiError(res);
     if (res.status === 204) return undefined as T;

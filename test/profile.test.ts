@@ -39,6 +39,16 @@ describe('profile add', () => {
     expect(await loadConfig(h.env)).toEqual(DEFAULT_CONFIG);
   });
 
+  it('a 401 from /user (e.g. missing the user permission) gives a permission hint and stores nothing', async () => {
+    const h = await harness({ answers: ['tk_bad'] });
+    h.reply(jsonResponse(401, { code: 11, message: 'missing, malformed, expired or otherwise invalid token provided' }, 'application/json'));
+    const r = await h.run('profile', 'add', 'reviewer');
+    expect(r.code).toBe(3);
+    expect(r.err.title).toBe('Vikunja rejected the token for profile `reviewer`');
+    expect(r.err.detail).toContain('`user` permission');
+    expect(h.keychain.items.has('profile:reviewer')).toBe(false);
+  });
+
   it('rejects invalid names without prompting', async () => {
     const h = await harness({ answers: ['tk_x'] });
     const r = await h.run('profile', 'add', 'Bad Name');

@@ -71,11 +71,45 @@ describe('VikunjaClient.request', () => {
     });
   });
 
-  it('maps 401 to exit 3 naming the profile', async () => {
-    const f = fakeFetch(jsonResponse(401, { title: 'Unauthorized', status: 401 }, 'application/problem+json'));
+  it('maps 401 to exit 3 naming the profile, with the server message in detail', async () => {
+    const f = fakeFetch(
+      jsonResponse(401, { code: 11, message: 'missing, malformed, expired or otherwise invalid token provided' }, 'application/json'),
+    );
     await expect(makeClient(f.fn).request('GET', '/user')).rejects.toMatchObject({
       exitCode: 3,
-      info: { title: 'Vikunja token for profile `me` is invalid or expired', status: 401 },
+      info: {
+        title: 'Vikunja rejected the token for profile `me`',
+        status: 401,
+        detail:
+          'missing, malformed, expired or otherwise invalid token provided — the token may be invalid, expired, or missing a permission for this endpoint',
+      },
+    });
+  });
+
+  it('maps a 401 with no message body to exit 3 with just the generic detail', async () => {
+    const f = fakeFetch(new Response('', { status: 401 }));
+    await expect(makeClient(f.fn).request('GET', '/user')).rejects.toMatchObject({
+      exitCode: 3,
+      info: {
+        title: 'Vikunja rejected the token for profile `me`',
+        detail: 'the token may be invalid, expired, or missing a permission for this endpoint',
+      },
+    });
+  });
+
+  it('maps legacy {code,message} error bodies to exit 1 using message as the title', async () => {
+    const f = fakeFetch(jsonResponse(400, { code: 1234, message: 'bad thing' }, 'application/json'));
+    await expect(makeClient(f.fn).request('GET', '/user')).rejects.toMatchObject({
+      exitCode: 1,
+      info: { title: 'bad thing', status: 400 },
+    });
+  });
+
+  it('treats a 403 with an application/json body as an API error, not a Cloudflare rejection', async () => {
+    const f = fakeFetch(jsonResponse(403, { code: 10, message: 'forbidden' }, 'application/json'));
+    await expect(makeClient(f.fn).request('GET', '/user')).rejects.toMatchObject({
+      exitCode: 1,
+      info: { title: 'forbidden', status: 403 },
     });
   });
 
