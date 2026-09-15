@@ -74,6 +74,15 @@ describe('tasks list', () => {
 });
 
 describe('tasks get/create', () => {
+  it('an API error gives exit 1 and prints nothing to stdout', async () => {
+    const h = await harness();
+    h.reply(jsonResponse(404, { title: 'Not Found', status: 404 }, 'application/problem+json'));
+    const r = await h.run('tasks', 'get', '5');
+    expect(r.code).toBe(1);
+    expect(r.stdout).toBe('');
+    expect(r.err.title).toBe('Not Found');
+  });
+
   it('get prints the detail view', async () => {
     const h = await harness();
     h.reply(jsonResponse(200, task));

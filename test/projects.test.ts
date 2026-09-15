@@ -33,6 +33,13 @@ describe('projects', () => {
     expect(query(h.calls[0].url).has('is_archived')).toBe(false);
   });
 
+  it('list --page forwards the page number', async () => {
+    const h = await harness();
+    h.reply(page([project], 3, 5, 100));
+    await h.run('projects', 'list', '--page', '3');
+    expect(query(h.calls[0].url).get('page')).toBe('3');
+  });
+
   it('list --all fetches every page', async () => {
     const h = await harness();
     h.reply(page([project], 1, 2, 2), page([{ ...project, id: 3 }], 2, 2, 2));

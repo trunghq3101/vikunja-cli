@@ -67,6 +67,7 @@ vikunja comments add 345 --text "Reviewed. **Looks good.**"
 ## Output
 
 - Lists: `{"items": [...], "page": 1, "per_page": 50, "total_pages": 2, "total": 71}`.
+- Lists with `--all`: `{"items": [...], "total": 71}` (no `page`/`total_pages`), plus `"truncated": true` when capped at 5000 items.
 - Tasks: `id, title, done, project_id, due_date, priority, labels[{id,title}]`; `get`, `create` and `update` add `description, created, updated, done_at, created_by`.
 - Unset dates are `null`. Descriptions and comments are Markdown.
 
