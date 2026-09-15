@@ -25,7 +25,8 @@ vikunja projects list [--archived] [--search "home"]
 vikunja projects get 12
 vikunja projects create --title "Website" [--description "Markdown"] [--parent 3]
 vikunja projects update 12 [--title "New name"] [--description "Markdown"]
-vikunja projects archive 12          # unarchive 12
+vikunja projects archive 12
+vikunja projects unarchive 12
 vikunja projects delete 12 --yes     # deletes its tasks too
 
 vikunja tasks list                                    # open tasks in all projects
@@ -35,7 +36,8 @@ vikunja tasks list --include-done --search "invoice"
 vikunja tasks get 345
 vikunja tasks create --project 12 --title "Draft post" [--description "## Notes"] [--due 2026-09-30] [--priority 3]
 vikunja tasks update 345 [--title …] [--description …] [--due 2026-10-01T09:00|none] [--priority 0-5]
-vikunja tasks done 345               # undone 345
+vikunja tasks done 345
+vikunja tasks undone 345
 vikunja tasks delete 345 --yes
 
 vikunja labels list [--search urgent]
