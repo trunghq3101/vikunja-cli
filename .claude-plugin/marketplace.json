@@ -1,0 +1,11 @@
+{
+  "name": "vikunja-cli",
+  "owner": { "name": "trung" },
+  "plugins": [
+    {
+      "name": "vikunja",
+      "source": "./plugin",
+      "description": "Vikunja CLI for agents (API v2, Cloudflare Access, multi-profile)"
+    }
+  ]
+}
