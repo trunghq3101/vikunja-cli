@@ -3516,13 +3516,13 @@ function isCloudflareRejection(res) {
   }
   const type = res.headers.get("content-type") ?? "";
   if (type.includes("text/html")) return true;
-  return res.status === 403 && !type.includes("application/problem+json");
+  return res.status === 403 && !type.includes("json");
 }
 async function apiError(res) {
   const text = await res.text();
   try {
     const problem = JSON.parse(text);
-    return new CliError(1, problem.title ?? `HTTP ${res.status}`, {
+    return new CliError(1, problem.title ?? problem.message ?? `HTTP ${res.status}`, {
       status: res.status,
       detail: problem.detail,
       errors: problem.errors ?? void 0
@@ -3565,7 +3565,17 @@ var VikunjaClient = class {
     }
     if (isCloudflareRejection(res)) throw new CliError(3, CLOUDFLARE_REJECTED, { status: res.status });
     if (res.status === 401) {
-      throw new CliError(3, `Vikunja token for profile \`${profile ?? "(none)"}\` is invalid or expired`, { status: 401 });
+      const text2 = await res.text();
+      let message;
+      try {
+        message = JSON.parse(text2).message;
+      } catch {
+      }
+      const generic = "the token may be invalid, expired, or missing a permission for this endpoint";
+      throw new CliError(3, `Vikunja rejected the token for profile \`${profile ?? "(none)"}\``, {
+        status: 401,
+        detail: message ? `${message} \u2014 ${generic}` : generic
+      });
     }
     if (!res.ok) throw await apiError(res);
     if (res.status === 204) return void 0;
@@ -3781,6 +3791,19 @@ async function listAndShape(client, path, query, params, trim) {
   const res = await client.listPage(path, { ...query, page: params.page, per_page: params.perPage });
   return shapeList(res, params.full, trim);
 }
+async function getCurrentUser(client) {
+  try {
+    return await client.request("GET", "/user");
+  } catch (err) {
+    if (err instanceof CliError && err.info.status === 401) {
+      throw new CliError(3, err.info.title, {
+        status: 401,
+        detail: "grant this token the `user` permission (Other group) in Vikunja: Settings \u2192 API Tokens, or Settings \u2192 Bot Users for bot tokens"
+      });
+    }
+    throw err;
+  }
+}
 async function patchAndReread(client, path, patch) {
   const headers = "description" in patch ? { "X-Vikunja-Format": "markdown" } : void 0;
   await client.request("PATCH", path, { body: patch, headers });
@@ -3871,7 +3894,7 @@ function registerProfile(program2, deps) {
     const token = await deps.prompter.ask(`Vikunja API token for ${name}: `, { hidden: true });
     if (!token) throw usageError("token is required");
     const client = new VikunjaClient({ connection, token, profile: name, fetch: deps.fetch });
-    const user = await client.request("GET", "/user");
+    const user = await getCurrentUser(client);
     await deps.keychain.set(profileAccount(name), token);
     const defaultProfile = cfg.default_profile ?? name;
     await saveConfig(deps.env, {
@@ -4117,7 +4140,7 @@ function registerTasks(program2, deps) {
 function registerWhoami(program2, deps) {
   program2.command("whoami").description("show the profile in use and the Vikunja user it maps to").option("--as <profile>", "act as this Vikunja profile").option("--full", "print the raw /user object instead of the summary").action(async (opts) => {
     const { client, identity, connection } = await apiContext(deps, opts);
-    const user = await client.request("GET", "/user");
+    const user = await getCurrentUser(client);
     if (opts.full) {
       print(deps, { profile: identity.profile, url: connection.url, user: normalizeDates(user) });
       return;
