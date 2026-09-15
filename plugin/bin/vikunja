@@ -3528,6 +3528,10 @@ async function apiError(res) {
       errors: problem.errors ?? void 0
     });
   } catch {
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location");
+      if (location) return new CliError(1, `HTTP ${res.status}`, { status: res.status, detail: `redirected to ${location}` });
+    }
     return new CliError(1, `HTTP ${res.status}`, { status: res.status, detail: text.slice(0, 500) });
   }
 }
@@ -3565,8 +3569,20 @@ var VikunjaClient = class {
     }
     if (!res.ok) throw await apiError(res);
     if (res.status === 204) return void 0;
-    const text = await res.text();
-    return text ? JSON.parse(text) : void 0;
+    let text;
+    try {
+      text = await res.text();
+    } catch (err) {
+      const e = err;
+      const title = e.name === "TimeoutError" ? `request timed out after ${timeoutMs / 1e3}s` : "invalid response from server";
+      throw new CliError(1, title, { detail: `${method} ${url}: ${e.message}` });
+    }
+    if (!text) return void 0;
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new CliError(1, "invalid response from server", { status: res.status, detail: text.slice(0, 200) });
+    }
   }
   listPage(path, query) {
     return this.request("GET", path, { query });
@@ -3644,7 +3660,7 @@ async function fromProfile(name, keychain) {
 }
 async function resolveIdentity(as, env, keychain, cfg) {
   if (as !== void 0) {
-    if (env.VIKUNJA_PROFILE_LOCK === "1") {
+    if (env.VIKUNJA_PROFILE_LOCK === "1" && as !== env.VIKUNJA_PROFILE) {
       throw new CliError(2, "profile is locked for this session", {
         detail: "VIKUNJA_PROFILE_LOCK=1 is set, so --as is not allowed"
       });
@@ -3671,9 +3687,9 @@ function print(deps, value) {
 }
 
 // src/output.ts
-var ZERO_DATE_PREFIX = /^0001-01-01T/;
+var ZERO_DATE_MATCH = /^0001-01-01T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 function normalizeDates(value) {
-  if (typeof value === "string" && ZERO_DATE_PREFIX.test(value)) return null;
+  if (typeof value === "string" && ZERO_DATE_MATCH.test(value)) return null;
   if (Array.isArray(value)) return value.map((item) => normalizeDates(item));
   if (value !== null && typeof value === "object") {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, normalizeDates(item)]));
@@ -3871,14 +3887,20 @@ function registerProfile(program2, deps) {
     print(deps, { items });
   });
   profile.command("default <name>").description("set the profile used when neither --as nor VIKUNJA_PROFILE is given").action(async (name) => {
+    if (!PROFILE_NAME.test(name)) {
+      throw usageError(`invalid profile name: ${name}`, "use lowercase letters, digits, - and _ (max 32 characters)");
+    }
     const cfg = await loadConfig(deps.env);
-    if (!cfg.profiles[name]) throw notFound(name);
+    if (!Object.hasOwn(cfg.profiles, name)) throw notFound(name);
     await saveConfig(deps.env, { ...cfg, default_profile: name });
     print(deps, { default_profile: name });
   });
   profile.command("remove <name>").description("delete a profile and its stored token").action(async (name) => {
+    if (!PROFILE_NAME.test(name)) {
+      throw usageError(`invalid profile name: ${name}`, "use lowercase letters, digits, - and _ (max 32 characters)");
+    }
     const cfg = await loadConfig(deps.env);
-    if (!cfg.profiles[name]) throw notFound(name);
+    if (!Object.hasOwn(cfg.profiles, name)) throw notFound(name);
     await deps.keychain.delete(profileAccount(name));
     const { [name]: _removed, ...profiles } = cfg.profiles;
     const next = { ...cfg, profiles };
@@ -4010,7 +4032,9 @@ function parseDue(input, allowNone) {
     throw invalid(input);
   }
   const offset = OFFSET_DATETIME.exec(input);
-  if (offset && isValidOffsetDatetime(offset)) return input;
+  if (offset && isValidOffsetDatetime(offset)) {
+    return offset[6] === void 0 ? `${input.slice(0, 16)}:00${input.slice(16)}` : input;
+  }
   throw invalid(input);
 }
 
@@ -4091,9 +4115,13 @@ function registerTasks(program2, deps) {
 
 // src/commands/whoami.ts
 function registerWhoami(program2, deps) {
-  program2.command("whoami").description("show the profile in use and the Vikunja user it maps to").option("--as <profile>", "act as this Vikunja profile").action(async (opts) => {
+  program2.command("whoami").description("show the profile in use and the Vikunja user it maps to").option("--as <profile>", "act as this Vikunja profile").option("--full", "print the raw /user object instead of the summary").action(async (opts) => {
     const { client, identity, connection } = await apiContext(deps, opts);
     const user = await client.request("GET", "/user");
+    if (opts.full) {
+      print(deps, { profile: identity.profile, url: connection.url, user: normalizeDates(user) });
+      return;
+    }
     print(deps, { profile: identity.profile, user_id: user.id, username: user.username, url: connection.url });
   });
 }
