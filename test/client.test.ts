@@ -123,6 +123,24 @@ describe('VikunjaClient.request', () => {
       info: { title: 'request timed out after 5s' },
     });
   });
+
+  it('maps an invalid JSON success body to exit 1', async () => {
+    const f = fakeFetch(new Response('not json', { status: 200, headers: { 'content-type': 'application/json' } }));
+    await expect(makeClient(f.fn).request('GET', '/user')).rejects.toMatchObject({
+      exitCode: 1,
+      info: { title: 'invalid response from server', status: 200 },
+    });
+  });
+
+  it('maps a non-Cloudflare redirect to exit 1 with the Location header in detail', async () => {
+    const f = fakeFetch(
+      new Response('', { status: 301, headers: { location: 'https://vk.test/api/v2/user', 'content-type': 'text/plain' } }),
+    );
+    const err = (await makeClient(f.fn).request('GET', '/user').catch((e: any) => e)) as any;
+    expect(err.exitCode).toBe(1);
+    expect(err.info.title).toBe('HTTP 301');
+    expect(err.info.detail).toContain('https://vk.test/api/v2/user');
+  });
 });
 
 describe('pagination', () => {

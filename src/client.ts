@@ -72,6 +72,10 @@ async function apiError(res: Response): Promise<CliError> {
       errors: problem.errors ?? undefined,
     });
   } catch {
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get('location');
+      if (location) return new CliError(1, `HTTP ${res.status}`, { status: res.status, detail: `redirected to ${location}` });
+    }
     return new CliError(1, `HTTP ${res.status}`, { status: res.status, detail: text.slice(0, 500) });
   }
 }
@@ -110,8 +114,20 @@ export class VikunjaClient {
     }
     if (!res.ok) throw await apiError(res);
     if (res.status === 204) return undefined as T;
-    const text = await res.text();
-    return (text ? JSON.parse(text) : undefined) as T;
+    let text: string;
+    try {
+      text = await res.text();
+    } catch (err) {
+      const e = err as Error;
+      const title = e.name === 'TimeoutError' ? `request timed out after ${timeoutMs / 1000}s` : 'invalid response from server';
+      throw new CliError(1, title, { detail: `${method} ${url}: ${e.message}` });
+    }
+    if (!text) return undefined as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new CliError(1, 'invalid response from server', { status: res.status, detail: text.slice(0, 200) });
+    }
   }
 
   listPage<T>(path: string, query: Query): Promise<Page<T>> {
