@@ -87,7 +87,7 @@ export async function resolveIdentity(
   cfg: ConfigFile,
 ): Promise<Identity> {
   if (as !== undefined) {
-    if (env.VIKUNJA_PROFILE_LOCK === '1') {
+    if (env.VIKUNJA_PROFILE_LOCK === '1' && as !== env.VIKUNJA_PROFILE) {
       throw new CliError(2, 'profile is locked for this session', {
         detail: 'VIKUNJA_PROFILE_LOCK=1 is set, so --as is not allowed',
       });

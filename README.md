@@ -57,7 +57,7 @@ You act as the Vikunja profile `reviewer`. Add `--as reviewer` to the end of eve
 { "env": { "VIKUNJA_PROFILE": "planner", "VIKUNJA_PROFILE_LOCK": "1" } }
 ```
 
-With `VIKUNJA_PROFILE_LOCK=1`, `--as` is rejected. This guards against mistakes; it is not a security boundary.
+With `VIKUNJA_PROFILE_LOCK=1`, `--as` is rejected unless it names the same profile as `VIKUNJA_PROFILE`. This guards against mistakes; it is not a security boundary.
 
 **Main session.** Uses the default profile.
 

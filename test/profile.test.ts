@@ -87,4 +87,13 @@ describe('profile list/default/remove', () => {
     expect(saved.default_profile).toBeUndefined();
     expect((await h.run('profile', 'remove', 'ghost')).code).toBe(3);
   });
+
+  it('default and remove only match own profile entries, not inherited ones', async () => {
+    const h = await harness({ config, secrets });
+    const r = await h.run('profile', 'default', 'constructor');
+    expect(r.code).toBe(3);
+    expect((await loadConfig(h.env)).default_profile).toBe('me');
+    expect((await h.run('profile', 'remove', 'constructor')).code).toBe(3);
+    expect((await loadConfig(h.env)).profiles).toEqual(config.profiles);
+  });
 });

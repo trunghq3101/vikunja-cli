@@ -104,7 +104,7 @@ Each non-token value: environment variable first, then stored value; if missing,
 
 The Vikunja token is chosen by the first rule that applies:
 
-1. `--as <name>` flag: Keychain `profile:<name>`. If `VIKUNJA_PROFILE_LOCK=1` is set, `--as` is rejected with exit 2 ("profile is locked for this session").
+1. `--as <name>` flag: Keychain `profile:<name>`. If `VIKUNJA_PROFILE_LOCK=1` is set, `--as` is rejected with exit 2 unless it names the same profile as `VIKUNJA_PROFILE` ("profile is locked for this session").
 2. `VIKUNJA_PROFILE` env var: Keychain `profile:<name>`.
 3. `VIKUNJA_API_TOKEN` env var: that raw token; profile name reported as `(env)`.
 4. `default_profile` from config.json.

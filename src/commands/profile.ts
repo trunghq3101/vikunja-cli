@@ -52,8 +52,11 @@ export function registerProfile(program: Command, deps: Deps): void {
     .command('default <name>')
     .description('set the profile used when neither --as nor VIKUNJA_PROFILE is given')
     .action(async (name: string) => {
+      if (!PROFILE_NAME.test(name)) {
+        throw usageError(`invalid profile name: ${name}`, 'use lowercase letters, digits, - and _ (max 32 characters)');
+      }
       const cfg = await loadConfig(deps.env);
-      if (!cfg.profiles[name]) throw notFound(name);
+      if (!Object.hasOwn(cfg.profiles, name)) throw notFound(name);
       await saveConfig(deps.env, { ...cfg, default_profile: name });
       print(deps, { default_profile: name });
     });
@@ -62,8 +65,11 @@ export function registerProfile(program: Command, deps: Deps): void {
     .command('remove <name>')
     .description('delete a profile and its stored token')
     .action(async (name: string) => {
+      if (!PROFILE_NAME.test(name)) {
+        throw usageError(`invalid profile name: ${name}`, 'use lowercase letters, digits, - and _ (max 32 characters)');
+      }
       const cfg = await loadConfig(deps.env);
-      if (!cfg.profiles[name]) throw notFound(name);
+      if (!Object.hasOwn(cfg.profiles, name)) throw notFound(name);
       await deps.keychain.delete(profileAccount(name));
       const { [name]: _removed, ...profiles } = cfg.profiles;
       const next: ConfigFile = { ...cfg, profiles };

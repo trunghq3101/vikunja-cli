@@ -58,4 +58,15 @@ describe('whoami', () => {
     expect(r.code).toBe(2);
     expect(h.calls).toHaveLength(0);
   });
+
+  it('--full prints the raw user object with dates normalized', async () => {
+    const h = await harness();
+    h.reply(jsonResponse(200, { id: 7, username: 'trung', created: '0001-01-01T00:00:00Z' }));
+    const r = await h.run('whoami', '--full');
+    expect(r.out).toEqual({
+      profile: 'me',
+      url: 'https://vk.test',
+      user: { id: 7, username: 'trung', created: null },
+    });
+  });
 });

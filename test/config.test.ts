@@ -110,6 +110,11 @@ describe('resolveIdentity', () => {
     expect(await resolveIdentity(undefined, e, keychain, cfg)).toEqual({ profile: 'planner', token: 'tk_plan' });
   });
 
+  it('--as naming the locked profile itself is allowed', async () => {
+    const e = { ...env, VIKUNJA_PROFILE_LOCK: '1', VIKUNJA_PROFILE: 'planner' };
+    expect(await resolveIdentity('planner', e, keychain, cfg)).toEqual({ profile: 'planner', token: 'tk_plan' });
+  });
+
   it('unknown or invalid profile names are exit 3', async () => {
     await expect(resolveIdentity('ghost', env, keychain, cfg)).rejects.toMatchObject({
       exitCode: 3,

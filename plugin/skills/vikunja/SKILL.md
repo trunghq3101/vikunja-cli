@@ -13,7 +13,7 @@ allowed-tools: Bash(vikunja whoami) Bash(vikunja whoami *) Bash(vikunja projects
 - If your instructions name a Vikunja profile (for example "act as `reviewer`"), add `--as <profile>` at the **end** of every command: `vikunja tasks list --as reviewer`.
 - Otherwise omit `--as`; the session's profile is used.
 - Unsure who you are acting as? Run `vikunja whoami`.
-- "profile is locked for this session" means this session is pinned to one profile: drop `--as`.
+- "profile is locked for this session" means this session is pinned to one profile: drop `--as` or use the session's own profile.
 - Never run `vikunja setup` or `vikunja profile …`. Those are for the human.
 
 ## Commands
