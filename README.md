@@ -8,7 +8,7 @@ A JSON-speaking command-line tool that lets AI agents in Claude Code manage a se
 - Node.js 20 or newer on `PATH`
 - Vikunja 2.4.0 or newer (API v2)
 - A Cloudflare Access service token allowed by the Vikunja application's policy
-- A Vikunja API token for each account the agents should use
+- A Vikunja API token for each account the agents should use, with these permissions: `projects`, `tasks`, `labels`, `tasks_labels`, `tasks_comments`, and **Other → user**. This applies to bot-user tokens too (Settings → Bot Users), not just personal API tokens (Settings → API Tokens). A bot account only sees projects that have been shared with it, or that it creates itself.
 
 ## Install in Claude Code
 
@@ -70,7 +70,7 @@ With `VIKUNJA_PROFILE_LOCK=1`, `--as` is rejected unless it names the same profi
 | Error | Fix |
 |---|---|
 | `Cloudflare Access rejected the request` | Re-run `setup`; check the service token is in the Access policy and not expired |
-| `Vikunja token for profile … is invalid or expired` | Create a new API token in Vikunja, then `profile add <name>` again |
+| `` Vikunja rejected the token for profile `…` `` | The token is invalid, expired, or missing a permission for this endpoint. If the detail mentions the `user` permission, grant the token the **user** permission (Other group) in Vikunja (Settings → API Tokens, or Settings → Bot Users for bot tokens); otherwise create a new API token in Vikunja and `profile add <name>` again |
 | `profile … not found` / `no profile configured` | `profile list`, then `profile add` |
 | `vikunja: command not found` in Claude Code | Check `/plugin` shows `vikunja` enabled, then start a new session |
 

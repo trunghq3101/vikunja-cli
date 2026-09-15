@@ -20,6 +20,7 @@ Assignees, kanban views/buckets, reminders, attachments, subtasks/relations, tea
 - Verbs: `POST` creates (201), `PATCH` partially updates, `PUT` replaces, `DELETE` returns 204. `PATCH` bodies are sent as `application/merge-patch+json` (plain `application/json` is not accepted for PATCH).
 - Lists return `{items, total, page, per_page, total_pages}` in the body; `per_page` defaults to 50.
 - Errors are RFC 9457 `application/problem+json` with `title, status, detail, code, errors[]`; validation errors are 422.
+- Verified against a real v2.6.0 server with throwaway tokens: a token (including a bot-user token) calling a route outside its permission scopes gets **401** with `content-type: application/json` and body `{"code":11,"message":"missing, malformed, expired or otherwise invalid token provided"}` — indistinguishable from a truly invalid token. `GET /user` specifically requires the token scope `other: ["user"]`; without it, `profile add` and `whoami` fail with this same 401. Genuine errors like 404 are still `application/problem+json` (`title/status/detail/code`).
 - Descriptions and comments are stored as HTML; `?format=markdown` reads/writes Markdown; for `PATCH` the header `X-Vikunja-Format: markdown` is used. A PATCH round-trips the whole resource, so sending that header on a PATCH that does not edit the description would re-convert (and possibly damage) the stored HTML.
 - Unset dates are returned as `0001-01-01T00:00:00Z`. Dates are RFC 3339.
 - OpenAPI spec: `/api/v2/openapi.json`.
@@ -39,7 +40,7 @@ Endpoints used:
 
 ### Cloudflare Access
 
-Service token requests carry `CF-Access-Client-Id` and `CF-Access-Client-Secret` headers. A rejected request gets a redirect to `*.cloudflareaccess.com`, an HTML page, or a 403 that is not `problem+json`.
+Service token requests carry `CF-Access-Client-Id` and `CF-Access-Client-Secret` headers. A rejected request gets a redirect to `*.cloudflareaccess.com`, an HTML page, or a 403 whose content type is not JSON.
 
 ### Claude Code plugins (verified against code.claude.com docs)
 
@@ -212,8 +213,8 @@ Errors: exactly one JSON document on stderr, `{"error": {"status": 404, "title":
 
 Detection in `client.ts`:
 
-- Requests use `redirect: "manual"`. A 3xx whose `Location` host ends in `cloudflareaccess.com`, any `text/html` response, or a 403 without `application/problem+json` gives exit 3, "Cloudflare Access rejected the request — check the service token (vikunja setup)".
-- A 401 gives exit 3, "Vikunja token for profile `<name>` is invalid or expired".
+- Requests use `redirect: "manual"`. A 3xx whose `Location` host ends in `cloudflareaccess.com`, any `text/html` response, or a 403 whose content type is not JSON gives exit 3, "Cloudflare Access rejected the request — check the service token (vikunja setup)".
+- A 401 gives exit 3, "Vikunja rejected the token for profile `<name>`", with `detail` set to the body's `message` (when present) followed by " — the token may be invalid, expired, or missing a permission for this endpoint".
 - No automatic retries.
 
 ## 8. Plugin packaging and skill

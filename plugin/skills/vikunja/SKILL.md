@@ -78,7 +78,7 @@ vikunja comments add 345 --text "Reviewed. **Looks good.**"
 | 0 | success | |
 | 1 | API or network error | read `error.title`, `error.detail` and `error.errors`; fix the input or report it |
 | 2 | bad arguments | fix the command (see `vikunja <command> --help`) |
-| 3 | config or auth problem (Cloudflare, token, missing profile) | stop and tell the human; do not retry |
+| 3 | config or auth problem (Cloudflare, a rejected token — invalid, expired, or missing a permission — missing profile) | stop and tell the human; do not retry |
 
 ## Rules
 
