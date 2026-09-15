@@ -1,4 +1,6 @@
 import { Command, CommanderError } from 'commander';
+import { registerComments } from './commands/comments';
+import { registerLabels } from './commands/labels';
 import { registerProjects } from './commands/projects';
 import { registerTasks } from './commands/tasks';
 import { registerWhoami } from './commands/whoami';
@@ -16,6 +18,8 @@ export function buildProgram(deps: Deps, captureErr: (text: string) => void = ()
   registerWhoami(program, deps);
   registerProjects(program, deps);
   registerTasks(program, deps);
+  registerLabels(program, deps);
+  registerComments(program, deps);
   return program;
 }
 
