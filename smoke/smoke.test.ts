@@ -42,14 +42,33 @@ async function api(...args: string[]) {
   }
 }
 
+// For commands expected to fail: returns the exit code and stderr instead of throwing.
+async function apiFail(...args: string[]): Promise<{ code: number; stderr: string }> {
+  try {
+    await execFileAsync('node', ['plugin/bin/vikunja', ...args, '--as', PROFILE!]);
+  } catch (err) {
+    const e = err as { code?: number; stderr?: string };
+    return { code: e.code ?? -1, stderr: e.stderr ?? '' };
+  }
+  throw new Error(`vikunja ${args.join(' ')} unexpectedly succeeded`);
+}
+
 describe.runIf(Boolean(PROFILE))('live smoke test', () => {
   const stamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
   let projectId: number | undefined;
   let labelId: number | undefined;
 
   afterAll(async () => {
-    if (labelId) await api('labels', 'delete', String(labelId), '--yes').catch(() => undefined);
-    if (projectId) await api('projects', 'delete', String(projectId), '--yes').catch(() => undefined);
+    if (labelId) {
+      await api('labels', 'delete', String(labelId), '--yes').catch((err) =>
+        console.warn(`smoke cleanup: could not delete label ${labelId}: ${(err as Error).message}`),
+      );
+    }
+    if (projectId) {
+      await api('projects', 'delete', String(projectId), '--yes').catch((err) =>
+        console.warn(`smoke cleanup: could not delete project ${projectId}: ${(err as Error).message}`),
+      );
+    }
   });
 
   it('every endpoint the CLI uses exists in the server OpenAPI spec', async () => {
@@ -87,6 +106,11 @@ describe.runIf(Boolean(PROFILE))('live smoke test', () => {
     expect(renamed.priority).toBe(3);
     expect(renamed.description).toContain('# Heading');
 
+    // Real newlines (like the create step), to catch server-side Markdown quirks the escaped form would hide.
+    const redescribed = await api('tasks', 'update', taskId, '--description', '## New\n\n- x');
+    expect((await api('tasks', 'get', taskId)).description).toContain('## New');
+    expect(redescribed.description).toContain('- x');
+
     expect((await api('tasks', 'done', taskId)).done).toBe(true);
     expect((await api('tasks', 'undone', taskId)).done).toBe(false);
 
@@ -95,6 +119,12 @@ describe.runIf(Boolean(PROFILE))('live smoke test', () => {
 
     const listed = await api('tasks', 'list', '--project', pid);
     expect(listed.items.map((t: { id: number }) => t.id)).toContain(created.id);
+
+    const low = await api('tasks', 'create', '--project', pid, '--title', 'smoke task low priority', '--priority', '1');
+    const sorted = await api('tasks', 'list', '--project', pid, '--include-done', '--sort', 'priority:desc');
+    const priorities = sorted.items.map((t: { priority: number }) => t.priority);
+    expect(priorities[0]).toBeGreaterThanOrEqual(priorities[priorities.length - 1]);
+    expect(sorted.items.map((t: { id: number }) => t.id)).toContain(low.id);
 
     const label = await api('labels', 'create', '--title', `smoke-${stamp}`, '--color', 'e11d48');
     labelId = label.id;
@@ -108,7 +138,18 @@ describe.runIf(Boolean(PROFILE))('live smoke test', () => {
     const comments = await api('comments', 'list', taskId);
     expect(comments.items.map((c: { id: number }) => c.id)).toContain(comment.id);
 
+    const redescribedProject = await api('projects', 'update', pid, '--description', 'proj **updated**');
+    expect(redescribedProject.description).toContain('**updated**');
+
     expect((await api('projects', 'archive', pid)).is_archived).toBe(true);
     expect((await api('projects', 'unarchive', pid)).is_archived).toBe(false);
+  });
+
+  it('an API error surfaces as exit 1 with a problem+json body', async () => {
+    // Proves Vikunja errors are problem+json, which the Cloudflare-rejection detection depends on.
+    const { code, stderr } = await apiFail('tasks', 'get', '2147480000');
+    expect(code).toBe(1);
+    const parsed = JSON.parse(stderr);
+    expect([403, 404]).toContain(parsed.error.status);
   });
 });
