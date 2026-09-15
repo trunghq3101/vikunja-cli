@@ -17,10 +17,10 @@ Assignees, kanban views/buckets, reminders, attachments, subtasks/relations, tea
 
 - Base path `/api/v2`, introduced in v2.4.0 (2026-07-19); covers every endpoint. v1 is frozen and slated for removal in 4.0.
 - Auth: `Authorization: Bearer tk_…` (API token with scoped permissions).
-- Verbs: `POST` creates (201), `PATCH` partially updates, `PUT` replaces, `DELETE` returns 204.
+- Verbs: `POST` creates (201), `PATCH` partially updates, `PUT` replaces, `DELETE` returns 204. `PATCH` bodies are sent as `application/merge-patch+json` (plain `application/json` is not accepted for PATCH).
 - Lists return `{items, total, page, per_page, total_pages}` in the body; `per_page` defaults to 50.
 - Errors are RFC 9457 `application/problem+json` with `title, status, detail, code, errors[]`; validation errors are 422.
-- Descriptions and comments are stored as HTML; `?format=markdown` reads/writes Markdown; for `PATCH` the header `X-Vikunja-Format: markdown` is used.
+- Descriptions and comments are stored as HTML; `?format=markdown` reads/writes Markdown; for `PATCH` the header `X-Vikunja-Format: markdown` is used. A PATCH round-trips the whole resource, so sending that header on a PATCH that does not edit the description would re-convert (and possibly damage) the stored HTML.
 - Unset dates are returned as `0001-01-01T00:00:00Z`. Dates are RFC 3339.
 - OpenAPI spec: `/api/v2/openapi.json`.
 - Filter syntax: `done = false && due_date < now+7d`; operators `= != < > <= >= in`, `&&`, `||`; labels/projects by numeric ID.
@@ -32,10 +32,10 @@ Endpoints used:
 | Server info (setup check) | `GET /info` |
 | Current user | `GET /user` |
 | Projects | `GET /projects` (`page, per_page, q, is_archived`), `POST /projects`, `GET/PATCH/DELETE /projects/{id}` |
-| Tasks | `GET /tasks`, `GET /projects/{p}/tasks` (`page, per_page, q, filter, sort_by[], order_by[]`), `POST /projects/{p}/tasks`, `GET/PATCH/DELETE /tasks/{id}` |
+| Tasks | `GET /tasks`, `GET /projects/{p}/tasks` (`page, per_page, q, filter, sort_by, order_by` — sort params repeated, no `[]`), `POST /projects/{p}/tasks`, `GET/PATCH/DELETE /tasks/{id}` |
 | Labels | `GET /labels` (`page, per_page, q`), `POST /labels`, `DELETE /labels/{id}` |
 | Task labels | `POST /tasks/{id}/labels` `{label_id}`, `DELETE /tasks/{id}/labels/{label_id}` |
-| Comments | `GET /tasks/{id}/comments`, `POST /tasks/{id}/comments` `{comment}` |
+| Comments | `GET /tasks/{id}/comments` (`page, per_page`), `POST /tasks/{id}/comments` `{comment}` |
 
 ### Cloudflare Access
 
@@ -122,7 +122,7 @@ A named profile with no Keychain item gives exit 3, "profile `<name>` not found"
 
 ### Setup and profile commands (run by the user, not agents)
 
-- `vikunja setup`: prompts for URL, CF client ID, CF client secret (secret input hidden when stdin is a TTY; line-based read otherwise), stores them, then calls `GET /api/v2/info` to confirm Cloudflare lets the request through. Reports success or the Cloudflare/network error.
+- `vikunja setup`: prompts for URL, CF client ID, CF client secret (secret input hidden when stdin is a TTY; line-based read otherwise), calls `GET /api/v2/info` with them to confirm Cloudflare lets the request through, and only if that succeeds stores them. Prints `{"ok": true, "url": "…", "vikunja_version": "…"}` or the Cloudflare/network error.
 - `vikunja profile add <name>`: reads the token (hidden prompt on a TTY; first line of stdin otherwise, e.g. `pbpaste | vikunja profile add reviewer`), calls `GET /user` with it, and only if that succeeds stores the token and records the username in config.json. The first profile added becomes the default.
 - `vikunja profile list`: `{"items":[{"name","username","default"}]}`. Never prints tokens.
 - `vikunja profile default <name>`, `vikunja profile remove <name>` (removes the Keychain item and config entry; if it was the default, the default is cleared).
@@ -167,7 +167,7 @@ Behavior details:
 
 - **projects list:** `--archived` sends `is_archived=true` (includes archived projects).
 - **projects archive/unarchive:** `PATCH /projects/{id}` with `{"is_archived": true|false}`.
-- **tasks list:** uses `GET /projects/{p}/tasks` when `--project` is given, else `GET /tasks`. With neither `--filter` nor `--include-done`, sends `filter=done = false`. With `--filter`, the expression is sent as-is and no implicit done filter is added. `--sort due_date:asc` (repeatable) becomes paired `sort_by[]`/`order_by[]`; without `--sort` no sort parameters are sent.
+- **tasks list:** uses `GET /projects/{p}/tasks` when `--project` is given, else `GET /tasks`. With neither `--filter` nor `--include-done`, sends `filter=done = false`. With `--filter`, the expression is sent as-is and no implicit done filter is added. `--sort due_date:asc` (repeatable) becomes repeated, positionally paired `sort_by=due_date&order_by=asc` query parameters (no `[]` suffix); without `--sort` no sort parameters are sent.
 - **tasks create:** `POST /projects/{p}/tasks`.
 - **tasks update / done / undone:** `PATCH /tasks/{id}` with only the given fields (`done/undone` send `{"done": true|false}`). `update` with no field options exits 2.
 - **Priority:** integer 0–5 (0 unset, 1 low, 2 medium, 3 high, 4 urgent, 5 do now); other values exit 2.
@@ -177,7 +177,7 @@ Behavior details:
   - ISO datetime without offset: interpreted as local time.
   - `none` (update only): sends `"due_date": null`. The smoke test (§9) confirms the server clears the date. If v2 rejects `null`, the implementation sends `0001-01-01T00:00:00Z` instead, and the unit test is updated to match.
   - Anything else exits 2.
-- **Markdown:** every request for projects, tasks and comments includes `format=markdown`; `PATCH` requests also send `X-Vikunja-Format: markdown`.
+- **Markdown:** every GET and POST for projects, tasks and comments includes `format=markdown`. A `PATCH` sends `X-Vikunja-Format: markdown` only when its body contains `description`. After any PATCH (update, done, undone, archive, unarchive) the command re-reads the resource with `GET …?format=markdown` and prints that, so output is always Markdown.
 - **Deletes** without `--yes` exit 2 with "refusing to delete without --yes".
 - **labels add/remove:** `POST /tasks/{id}/labels` `{label_id}` / `DELETE /tasks/{id}/labels/{label_id}`.
 - **`--all`:** follows `total_pages` until done or 5,000 items collected; if truncated, the output includes `"truncated": true`.
@@ -267,7 +267,7 @@ Versioning: `plugin.json` `version` follows semver and is bumped on each release
 - Config resolution: env over stored values; missing values give exit 3 with the right message.
 - Profile selection: the four precedence rules, lock rejection, unknown profile.
 - `profile add`: verifies with `GET /user` before storing; failed verification stores nothing; first profile becomes default.
-- Every command: method, path, query (including `format=markdown`, implicit done filter, sort pairs), body, and headers (CF headers, Bearer, `X-Vikunja-Format` on PATCH).
+- Every command: method, path, query (including `format=markdown`, implicit done filter, sort pairs), body, and headers (CF headers, Bearer, `Content-Type: application/merge-patch+json` on PATCH, `X-Vikunja-Format` only on PATCHes that include `description`).
 - `--due` parsing cases, priority validation, delete without `--yes`.
 - Output trimming, `--full`, zero-date → `null`, `--all` pagination and truncation.
 - Error mapping: Cloudflare redirect, HTML, bare 403, 401, `problem+json` 422 with `errors[]`, network error, timeout.
