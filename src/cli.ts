@@ -1,5 +1,6 @@
 import { Command, CommanderError } from 'commander';
 import { registerProjects } from './commands/projects';
+import { registerTasks } from './commands/tasks';
 import { registerWhoami } from './commands/whoami';
 import type { Deps } from './context';
 import { errorJson } from './errors';
@@ -14,6 +15,7 @@ export function buildProgram(deps: Deps, captureErr: (text: string) => void = ()
     .configureOutput({ writeOut: (text) => deps.io.stdout(text), writeErr: captureErr, outputError: () => {} });
   registerWhoami(program, deps);
   registerProjects(program, deps);
+  registerTasks(program, deps);
   return program;
 }
 
