@@ -29,7 +29,17 @@ describe('parseDue', () => {
     expect(thrown(() => parseDue('none', false))).toMatchObject({ exitCode: 2 });
   });
 
-  it.each(['tomorrow', '2026-02-30', '2026-13-01', '2026-09-20T25:00', '20-09-2026'])('rejects %s with exit 2', (input) => {
+  it.each([
+    'tomorrow',
+    '2026-02-30',
+    '2026-13-01',
+    '2026-09-20T25:00',
+    '20-09-2026',
+    '2026-02-30T09:30:00Z',
+    '2026-09-20T24:00:00+07:00',
+    '2026-09-20T09:60:00Z',
+    '2026-09-20T09:30:00+25:00',
+  ])('rejects %s with exit 2', (input) => {
     expect(thrown(() => parseDue(input, true))).toMatchObject({ exitCode: 2, info: { title: 'invalid --due value' } });
   });
 });

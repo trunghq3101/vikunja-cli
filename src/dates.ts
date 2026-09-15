@@ -2,7 +2,7 @@ import { usageError } from './errors';
 
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
 const LOCAL_DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
-const OFFSET_DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/;
+const OFFSET_DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(?:(Z)|([+-])(\d{2}):(\d{2}))$/;
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -30,6 +30,26 @@ function strictLocalDate([y, mo, d, h, mi, s]: number[]): Date | null {
   return exact ? date : null;
 }
 
+// Validates offset datetime components (Z or ±HH:MM) are in valid ranges and dates don't roll over.
+function isValidOffsetDatetime(match: RegExpExecArray): boolean {
+  const [, yStr, moStr, dStr, hStr, miStr, sStr, isZ, sign, ohStr, omStr] = match;
+  const y = Number(yStr);
+  const mo = Number(moStr);
+  const d = Number(dStr);
+  const h = Number(hStr);
+  const mi = Number(miStr);
+  const s = sStr ? Number(sStr) : 0;
+  const oh = Number(ohStr || 0);
+  const om = Number(omStr || 0);
+
+  // Validate component ranges
+  if (mo < 1 || mo > 12 || h > 23 || mi > 59 || s > 59 || oh > 23 || om > 59) return false;
+
+  // Validate day is valid for the month (using UTC date check to avoid DST issues)
+  const checkDate = new Date(Date.UTC(y, mo - 1, d));
+  return checkDate.getUTCFullYear() === y && checkDate.getUTCMonth() === mo - 1 && checkDate.getUTCDate() === d;
+}
+
 function invalid(input: string) {
   return usageError('invalid --due value', `got "${input}"; expected YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS][Z|±HH:MM] or none`);
 }
@@ -51,6 +71,7 @@ export function parseDue(input: string, allowNone: boolean): string | null {
     if (date) return toLocalIso(date);
     throw invalid(input);
   }
-  if (OFFSET_DATETIME.test(input) && !Number.isNaN(Date.parse(input))) return input;
+  const offset = OFFSET_DATETIME.exec(input);
+  if (offset && isValidOffsetDatetime(offset)) return input;
   throw invalid(input);
 }
