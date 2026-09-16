@@ -13,15 +13,15 @@ A JSON-speaking command-line tool that lets AI agents in Claude Code manage a se
 ## Install in Claude Code
 
 ```
-/plugin marketplace add /Users/trung/Code/vikunja_cli
+/plugin marketplace add trunghq3101/vikunja-cli
 /plugin install vikunja@vikunja-cli
 ```
 
-Once the repo is on GitHub, `/plugin marketplace add <owner>/<repo>` works the same way. Start a new Claude Code session after installing so the `vikunja` command and skill are available.
+A local checkout works the same way: `/plugin marketplace add /path/to/vikunja_cli`. Start a new Claude Code session after installing so the `vikunja` command and skill are available.
 
 ## One-time setup (in a regular terminal)
 
-Run these yourself, from the repo directory, not through an agent:
+Run these yourself, not through an agent. The plugin puts `vikunja` on the PATH of Claude Code's Bash tool, not on your shell's PATH, so use the binary's full path. To find it, ask Claude Code to run `which vikunja` in an installed session, or clone this repo and use `./plugin/bin/vikunja` from the clone:
 
 ```bash
 ./plugin/bin/vikunja setup                   # Vikunja URL, Cloudflare client ID and secret
