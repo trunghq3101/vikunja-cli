@@ -36,7 +36,7 @@ Endpoints used:
 | Tasks | `GET /tasks`, `GET /projects/{p}/tasks` (`page, per_page, q, filter, sort_by, order_by` — sort params repeated, no `[]`), `POST /projects/{p}/tasks`, `GET/PATCH/DELETE /tasks/{id}` |
 | Labels | `GET /labels` (`page, per_page, q`), `POST /labels`, `DELETE /labels/{id}` |
 | Task labels | `POST /tasks/{id}/labels` `{label_id}`, `DELETE /tasks/{id}/labels/{label_id}` |
-| Comments | `GET /tasks/{id}/comments` (`page, per_page`), `POST /tasks/{id}/comments` `{comment}` |
+| Comments | `GET /tasks/{id}/comments` (`page, per_page`), `POST /tasks/{id}/comments` `{comment}`, `DELETE /tasks/{id}/comments/{comment-id}` |
 
 ### Cloudflare Access
 
@@ -162,6 +162,7 @@ vikunja labels remove <task-id> <label-id>
 
 vikunja comments list <task-id>
 vikunja comments add  <task-id> --text MD
+vikunja comments delete <task-id> <comment-id> --yes
 ```
 
 Behavior details:

@@ -30,6 +30,7 @@ const USED_ENDPOINTS: Array<[string, string]> = [
   ['delete', '/tasks/{projecttask}/labels/{label}'],
   ['get', '/tasks/{task}/comments'],
   ['post', '/tasks/{task}/comments'],
+  ['delete', '/tasks/{task}/comments/{commentid}'],
 ];
 
 async function api(...args: string[]) {
@@ -137,6 +138,8 @@ describe.runIf(Boolean(PROFILE))('live smoke test', () => {
     expect(comment.comment).toContain('**good**');
     const comments = await api('comments', 'list', taskId);
     expect(comments.items.map((c: { id: number }) => c.id)).toContain(comment.id);
+    await api('comments', 'delete', taskId, String(comment.id), '--yes');
+    expect((await api('comments', 'list', taskId)).items.map((c: { id: number }) => c.id)).not.toContain(comment.id);
 
     const redescribedProject = await api('projects', 'update', pid, '--description', 'proj **updated**');
     expect(redescribedProject.description).toContain('**updated**');

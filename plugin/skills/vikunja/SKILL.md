@@ -48,6 +48,7 @@ vikunja labels delete 7 --yes
 
 vikunja comments list 345
 vikunja comments add 345 --text "Reviewed. **Looks good.**"
+vikunja comments delete 345 81 --yes   # only the comment's author can delete it
 ```
 
 - List commands accept `--page N`, `--per-page N` (default 50, max 1000) and `--all` (up to 5000 items; `"truncated": true` when cut off).

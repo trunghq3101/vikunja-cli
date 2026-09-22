@@ -40,4 +40,14 @@ describe('comments', () => {
     expect(r.code).toBe(2);
     expect(h.calls).toHaveLength(0);
   });
+
+  it('delete requires --yes, then deletes', async () => {
+    const h = await harness();
+    expect((await h.run('comments', 'delete', '5', '9')).code).toBe(2);
+    expect(h.calls).toHaveLength(0);
+    h.reply(jsonResponse(204));
+    const r = await h.run('comments', 'delete', '5', '9', '--yes');
+    expect(h.calls[0]).toMatchObject({ method: 'DELETE', url: 'https://vk.test/api/v2/tasks/5/comments/9' });
+    expect(r.out).toEqual({ deleted: true, task_id: 5, id: 9 });
+  });
 });
