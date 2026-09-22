@@ -3812,7 +3812,7 @@ async function patchAndReread(client, path, patch) {
 
 // src/commands/comments.ts
 function registerComments(program2, deps) {
-  const comments = program2.command("comments").description("read and add task comments");
+  const comments = program2.command("comments").description("read, add and delete task comments");
   withList(comments.command("list <task-id>").description("list comments on a task")).action(
     async (taskArg, opts) => {
       const taskId = parseId(taskArg, "task id");
@@ -3829,6 +3829,14 @@ function registerComments(program2, deps) {
       body: { comment: opts.text }
     });
     print(deps, shapeOne(created, Boolean(opts.full), trimComment));
+  });
+  withApi(comments.command("delete <task-id> <comment-id>").description("delete a comment (author only)")).option("--yes", "confirm deletion").action(async (taskArg, commentArg, opts) => {
+    const taskId = parseId(taskArg, "task id");
+    const commentId = parseId(commentArg, "comment id");
+    requireYes(opts.yes);
+    const { client } = await apiContext(deps, opts);
+    await client.request("DELETE", `/tasks/${taskId}/comments/${commentId}`);
+    print(deps, { deleted: true, task_id: taskId, id: commentId });
   });
 }
 
