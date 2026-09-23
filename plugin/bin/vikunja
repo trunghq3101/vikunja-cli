@@ -3741,6 +3741,9 @@ function trimTask(t, detail3) {
 function trimLabel(l) {
   return { id: l.id, title: l.title, hex_color: l.hex_color ?? "" };
 }
+function trimBucket(b) {
+  return { id: b.id, title: b.title, limit: b.limit ?? 0 };
+}
 function trimComment(c) {
   return { id: c.id, author: username(c.author), created: c.created, comment: c.comment ?? "" };
 }
@@ -3804,10 +3807,51 @@ async function getCurrentUser(client) {
     throw err;
   }
 }
+async function resolveKanbanView(client, projectId, viewId) {
+  if (viewId !== void 0) return viewId;
+  const views = await client.listAll(`/projects/${projectId}/views`, {});
+  const kanban = views.items.filter((v) => v.view_kind === "kanban");
+  if (kanban.length === 1) return kanban[0].id;
+  if (kanban.length === 0) {
+    throw new CliError(1, `project ${projectId} has no kanban view`, {
+      detail: "buckets only exist in kanban views; add one to the project in Vikunja"
+    });
+  }
+  throw usageError(
+    `project ${projectId} has ${kanban.length} kanban views`,
+    `pass --view with one of: ${kanban.map((v) => `${v.id} (${v.title})`).join(", ")}`
+  );
+}
 async function patchAndReread(client, path, patch) {
   const headers = "description" in patch ? { "X-Vikunja-Format": "markdown" } : void 0;
   await client.request("PATCH", path, { body: patch, headers });
   return client.request("GET", path, { query: MARKDOWN });
+}
+
+// src/commands/buckets.ts
+function parseView(opts) {
+  const projectId = parseId(opts.project, "--project");
+  const viewId = opts.view === void 0 ? void 0 : parseId(opts.view, "--view");
+  return { projectId, viewId };
+}
+function registerBuckets(program2, deps) {
+  const buckets = program2.command("buckets").description("manage a project's kanban buckets");
+  withList(buckets.command("list").description("list the buckets of a kanban view")).requiredOption("--project <id>", "project id").option("--view <id>", "kanban view id (default: the project's only kanban view)").action(async (opts) => {
+    const params = parseListOptions(opts);
+    const { projectId, viewId } = parseView(opts);
+    const { client } = await apiContext(deps, opts);
+    const view = await resolveKanbanView(client, projectId, viewId);
+    print(deps, await listAndShape(client, `/projects/${projectId}/views/${view}/buckets`, {}, params, trimBucket));
+  });
+  withApi(buckets.command("create").description("create a bucket (check buckets list first)")).requiredOption("--project <id>", "project id").option("--view <id>", "kanban view id (default: the project's only kanban view)").requiredOption("--title <title>", "bucket title").option("--limit <n>", "maximum number of tasks in the bucket").action(async (opts) => {
+    const { projectId, viewId } = parseView(opts);
+    const body = { title: opts.title };
+    if (opts.limit !== void 0) body.limit = parseId(opts.limit, "--limit");
+    const { client } = await apiContext(deps, opts);
+    const view = await resolveKanbanView(client, projectId, viewId);
+    const created = await client.request("POST", `/projects/${projectId}/views/${view}/buckets`, { body });
+    print(deps, shapeOne(created, Boolean(opts.full), trimBucket));
+  });
 }
 
 // src/commands/comments.ts
@@ -4135,6 +4179,31 @@ function registerTasks(program2, deps) {
       print(deps, shapeOne(await patchAndReread(client, `/tasks/${taskId}`, { done }), Boolean(opts.full), detail2));
     });
   }
+  withApi(tasks.command("move <id>").description("move a task to another kanban bucket or project")).option("--bucket <id>", "target bucket in the task's project").option("--view <id>", "kanban view of --bucket (default: the project's only kanban view)").option("--project <id>", "target project").action(async (id, opts) => {
+    const taskId = parseId(id);
+    if (opts.bucket === void 0 === (opts.project === void 0)) {
+      throw usageError("pass exactly one of --bucket, --project");
+    }
+    if (opts.project !== void 0) {
+      if (opts.view !== void 0) throw usageError("--view only applies with --bucket");
+      const projectId2 = parseId(opts.project, "--project");
+      const { client: client2 } = await apiContext(deps, opts);
+      const moved = await patchAndReread(client2, `/tasks/${taskId}`, { project_id: projectId2 });
+      print(deps, shapeOne(moved, Boolean(opts.full), detail2));
+      return;
+    }
+    const bucketId = parseId(opts.bucket, "--bucket");
+    const viewId = opts.view === void 0 ? void 0 : parseId(opts.view, "--view");
+    const { client } = await apiContext(deps, opts);
+    const { project_id: projectId } = await client.request("GET", `/tasks/${taskId}`);
+    const view = await resolveKanbanView(client, projectId, viewId);
+    const placed = await client.request("PUT", `/projects/${projectId}/views/${view}/buckets/${bucketId}/tasks`, {
+      body: { task_id: taskId }
+    });
+    const task = await client.request("GET", `/tasks/${taskId}`, { query: MARKDOWN });
+    const bucket = placed?.bucket?.id ?? bucketId;
+    print(deps, { ...shapeOne(task, Boolean(opts.full), detail2), view_id: view, bucket_id: bucket });
+  });
   withApi(tasks.command("delete <id>").description("delete a task")).option("--yes", "confirm deletion").action(async (id, opts) => {
     const taskId = parseId(id);
     requireYes(opts.yes);
@@ -4167,6 +4236,7 @@ function buildProgram(deps, captureErr = () => {
   registerProjects(program2, deps);
   registerTasks(program2, deps);
   registerLabels(program2, deps);
+  registerBuckets(program2, deps);
   registerComments(program2, deps);
   registerSetup(program2, deps);
   registerProfile(program2, deps);
