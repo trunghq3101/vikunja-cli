@@ -10,7 +10,7 @@ import { registerWhoami } from './commands/whoami';
 import type { Deps } from './context';
 import { errorJson } from './errors';
 
-export const VERSION = '0.3.0';
+export const VERSION = '0.4.0';
 
 export function buildProgram(deps: Deps, captureErr: (text: string) => void = () => {}): Command {
   const program = new Command('vikunja')
