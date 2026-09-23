@@ -3829,6 +3829,11 @@ async function patchAndReread(client, path, patch) {
 }
 
 // src/commands/buckets.ts
+var withTasks = (b) => ({
+  ...trimBucket(b),
+  count: b.count ?? 0,
+  tasks: (b.tasks ?? []).map((t) => trimTask(t, "list"))
+});
 function parseView(opts) {
   const projectId = parseId(opts.project, "--project");
   const viewId = opts.view === void 0 ? void 0 : parseId(opts.view, "--view");
@@ -3836,11 +3841,21 @@ function parseView(opts) {
 }
 function registerBuckets(program2, deps) {
   const buckets = program2.command("buckets").description("manage a project's kanban buckets");
-  withList(buckets.command("list").description("list the buckets of a kanban view")).requiredOption("--project <id>", "project id").option("--view <id>", "kanban view id (default: the project's only kanban view)").action(async (opts) => {
+  withList(buckets.command("list").description("list the buckets of a kanban view")).requiredOption("--project <id>", "project id").option("--view <id>", "kanban view id (default: the project's only kanban view)").option("--tasks", "include the tasks in each bucket (not paginated)").action(async (opts) => {
     const params = parseListOptions(opts);
     const { projectId, viewId } = parseView(opts);
+    if (opts.tasks && (opts.page !== void 0 || opts.perPage !== void 0 || opts.all)) {
+      throw usageError("--tasks cannot be combined with --page, --per-page or --all", "it always returns every bucket");
+    }
     const { client } = await apiContext(deps, opts);
     const view = await resolveKanbanView(client, projectId, viewId);
+    if (opts.tasks) {
+      const path = `/projects/${projectId}/views/${view}/buckets/tasks`;
+      const res = await client.request("GET", path, { query: MARKDOWN });
+      const items = (res.items ?? []).map((b) => shapeOne(b, Boolean(opts.full), withTasks));
+      print(deps, { items, total: res.total ?? items.length });
+      return;
+    }
     print(deps, await listAndShape(client, `/projects/${projectId}/views/${view}/buckets`, {}, params, trimBucket));
   });
   withApi(buckets.command("create").description("create a bucket (check buckets list first)")).requiredOption("--project <id>", "project id").option("--view <id>", "kanban view id (default: the project's only kanban view)").requiredOption("--title <title>", "bucket title").option("--limit <n>", "maximum number of tasks in the bucket").action(async (opts) => {
