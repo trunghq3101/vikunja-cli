@@ -7,7 +7,7 @@ describe('cli basics', () => {
     const h = await harness();
     const r = await h.run('--version');
     expect(r.code).toBe(0);
-    expect(r.stdout).toBe('0.2.0\n');
+    expect(r.stdout).toBe('0.3.0\n');
   });
 
   it('a missing subcommand is exit 2 with a JSON error', async () => {

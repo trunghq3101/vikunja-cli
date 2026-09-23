@@ -4227,7 +4227,7 @@ function registerWhoami(program2, deps) {
 }
 
 // src/cli.ts
-var VERSION = "0.2.0";
+var VERSION = "0.3.0";
 function buildProgram(deps, captureErr = () => {
 }) {
   const program2 = new Command("vikunja").description("Vikunja CLI for AI agents (API v2, Cloudflare Access, multiple profiles). Prints JSON.").version(VERSION).exitOverride().configureOutput({ writeOut: (text) => deps.io.stdout(text), writeErr: captureErr, outputError: () => {

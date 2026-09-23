@@ -1,6 +1,6 @@
 {
   "name": "vikunja",
-  "version": "0.2.0",
-  "description": "Vikunja CLI for AI agents: projects, tasks, labels and comments over API v2 behind Cloudflare Access, with per-agent bot profiles.",
+  "version": "0.3.0",
+  "description": "Vikunja CLI for AI agents: projects, tasks, kanban buckets, labels and comments over API v2 behind Cloudflare Access, with per-agent bot profiles.",
   "author": { "name": "trung" }
 }
