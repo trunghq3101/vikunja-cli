@@ -19,6 +19,6 @@ it('the skill pre-approves only agent commands, never setup or profile', async (
   const skill = await readFile('plugin/skills/vikunja/SKILL.md', 'utf8');
   const line = skill.split('\n').find((l) => l.startsWith('allowed-tools:'));
   expect(line).toBe(
-    'allowed-tools: Bash(vikunja whoami) Bash(vikunja whoami *) Bash(vikunja projects *) Bash(vikunja tasks *) Bash(vikunja labels *) Bash(vikunja comments *)',
+    'allowed-tools: Bash(vikunja whoami) Bash(vikunja whoami *) Bash(vikunja projects *) Bash(vikunja tasks *) Bash(vikunja labels *) Bash(vikunja buckets *) Bash(vikunja comments *)',
   );
 });

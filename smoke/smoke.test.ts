@@ -31,7 +31,14 @@ const USED_ENDPOINTS: Array<[string, string]> = [
   ['get', '/tasks/{task}/comments'],
   ['post', '/tasks/{task}/comments'],
   ['delete', '/tasks/{task}/comments/{commentid}'],
+  ['get', '/projects/{project}/views'],
+  ['get', '/projects/{project}/views/{view}/buckets'],
+  ['post', '/projects/{project}/views/{view}/buckets'],
+  ['put', '/projects/{project}/views/{view}/buckets/{bucket}/tasks'],
 ];
+
+// Path parameter names differ between server versions ({projecttask} vs {task}); only the shape matters.
+const shape = (path: string) => path.replace(/\{[^}]+\}/g, '{}');
 
 async function api(...args: string[]) {
   try {
@@ -57,12 +64,18 @@ async function apiFail(...args: string[]): Promise<{ code: number; stderr: strin
 describe.runIf(Boolean(PROFILE))('live smoke test', () => {
   const stamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
   let projectId: number | undefined;
+  let otherProjectId: number | undefined;
   let labelId: number | undefined;
 
   afterAll(async () => {
     if (labelId) {
       await api('labels', 'delete', String(labelId), '--yes').catch((err) =>
         console.warn(`smoke cleanup: could not delete label ${labelId}: ${(err as Error).message}`),
+      );
+    }
+    if (otherProjectId) {
+      await api('projects', 'delete', String(otherProjectId), '--yes').catch((err) =>
+        console.warn(`smoke cleanup: could not delete project ${otherProjectId}: ${(err as Error).message}`),
       );
     }
     if (projectId) {
@@ -78,7 +91,8 @@ describe.runIf(Boolean(PROFILE))('live smoke test', () => {
       'GET',
       '/openapi.json',
     );
-    expect(USED_ENDPOINTS.filter(([method, path]) => !spec.paths[path]?.[method])).toEqual([]);
+    const paths = new Map(Object.entries(spec.paths).map(([path, ops]) => [shape(path), ops]));
+    expect(USED_ENDPOINTS.filter(([method, path]) => !paths.get(shape(path))?.[method])).toEqual([]);
   });
 
   it('whoami resolves the bot profile', async () => {
@@ -87,7 +101,7 @@ describe.runIf(Boolean(PROFILE))('live smoke test', () => {
     expect(me.username).toBeTruthy();
   });
 
-  it('round-trips projects, tasks, labels and comments', async () => {
+  it('round-trips projects, tasks, buckets, labels and comments', async () => {
     const project = await api('projects', 'create', '--title', `vikunja-cli-smoke-${stamp}`, '--description', 'smoke **test**');
     projectId = project.id;
     expect(project.description).toContain('**test**');
@@ -140,6 +154,18 @@ describe.runIf(Boolean(PROFILE))('live smoke test', () => {
     expect(comments.items.map((c: { id: number }) => c.id)).toContain(comment.id);
     await api('comments', 'delete', taskId, String(comment.id), '--yes');
     expect((await api('comments', 'list', taskId)).items.map((c: { id: number }) => c.id)).not.toContain(comment.id);
+
+    const bucket = await api('buckets', 'create', '--project', pid, '--title', 'smoke bucket', '--limit', '3');
+    expect(bucket).toMatchObject({ title: 'smoke bucket', limit: 3 });
+    const buckets = await api('buckets', 'list', '--project', pid);
+    expect(buckets.items.map((b: { id: number }) => b.id)).toContain(bucket.id);
+    const bucketed = await api('tasks', 'move', taskId, '--bucket', String(bucket.id));
+    expect(bucketed).toMatchObject({ id: created.id, bucket_id: bucket.id });
+
+    const other = await api('projects', 'create', '--title', `vikunja-cli-smoke-${stamp}-other`);
+    otherProjectId = other.id;
+    expect((await api('tasks', 'move', taskId, '--project', String(otherProjectId))).project_id).toBe(otherProjectId);
+    expect((await api('tasks', 'get', taskId)).project_id).toBe(otherProjectId);
 
     const redescribedProject = await api('projects', 'update', pid, '--description', 'proj **updated**');
     expect(redescribedProject.description).toContain('**updated**');

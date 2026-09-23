@@ -1,7 +1,7 @@
 ---
 name: vikunja
-description: Manage Vikunja projects, tasks, labels and comments with the `vikunja` CLI. Use when the user or your instructions mention Vikunja, todo tasks, task comments, or acting as a Vikunja bot profile.
-allowed-tools: Bash(vikunja whoami) Bash(vikunja whoami *) Bash(vikunja projects *) Bash(vikunja tasks *) Bash(vikunja labels *) Bash(vikunja comments *)
+description: Manage Vikunja projects, tasks, kanban buckets, labels and comments with the `vikunja` CLI. Use when the user or your instructions mention Vikunja, todo tasks, kanban boards, task comments, or acting as a Vikunja bot profile.
+allowed-tools: Bash(vikunja whoami) Bash(vikunja whoami *) Bash(vikunja projects *) Bash(vikunja tasks *) Bash(vikunja labels *) Bash(vikunja buckets *) Bash(vikunja comments *)
 ---
 
 # Vikunja CLI
@@ -38,6 +38,8 @@ vikunja tasks create --project 12 --title "Draft post" [--description "## Notes"
 vikunja tasks update 345 [--title …] [--description …] [--due 2026-10-01T09:00|none] [--priority 0-5]
 vikunja tasks done 345
 vikunja tasks undone 345
+vikunja tasks move 345 --bucket 21 [--view 8]   # kanban bucket in the task's project
+vikunja tasks move 345 --project 14             # another project
 vikunja tasks delete 345 --yes
 
 vikunja labels list [--search urgent]
@@ -45,6 +47,9 @@ vikunja labels create --title urgent [--color e11d48]
 vikunja labels add 345 7             # task 345, label 7
 vikunja labels remove 345 7
 vikunja labels delete 7 --yes
+
+vikunja buckets list --project 12 [--view 8]
+vikunja buckets create --project 12 [--view 8] --title "Review" [--limit 5]
 
 vikunja comments list 345
 vikunja comments add 345 --text "Reviewed. **Looks good.**"
@@ -56,6 +61,8 @@ vikunja comments delete 345 81 --yes   # only the comment's author can delete it
 - `--due`: `YYYY-MM-DD` means 23:59:59 local time that day; ISO datetimes are accepted; `none` clears the date (update only).
 - Priority: 0 unset, 1 low, 2 medium, 3 high, 4 urgent, 5 do now.
 - `tasks update` changes only the fields you pass.
+- Buckets belong to a project's kanban view. `--view` is optional when the project has exactly one kanban view; with several, the error lists them so you can pass `--view`.
+- `tasks move --bucket` only moves within the task's own project; to move to a bucket in another project, run `tasks move --project` first. Moving into the done bucket marks the task done, and out of it marks it undone. A bucket at its `limit` rejects the move.
 
 ## Filters (`tasks list --filter`)
 
@@ -70,6 +77,7 @@ vikunja comments delete 345 81 --yes   # only the comment's author can delete it
 - Lists: `{"items": [...], "page": 1, "per_page": 50, "total_pages": 2, "total": 71}`.
 - Lists with `--all`: `{"items": [...], "total": 71}` (no `page`/`total_pages`), plus `"truncated": true` when capped at 5000 items.
 - Tasks: `id, title, done, project_id, due_date, priority, labels[{id,title}]`; `get`, `create` and `update` add `description, created, updated, done_at, created_by`.
+- Buckets: `id, title, limit` (0 means no limit). `tasks move --bucket` prints the task plus `view_id, bucket_id`.
 - Unset dates are `null`. Descriptions and comments are Markdown.
 
 ## Exit codes
@@ -84,6 +92,6 @@ vikunja comments delete 345 81 --yes   # only the comment's author can delete it
 ## Rules
 
 - Look up IDs with `list` commands. Never guess an ID.
-- Before creating a label, run `vikunja labels list --search "<title>"` and reuse an existing one.
+- Before creating a label, run `vikunja labels list --search "<title>"` and reuse an existing one. Likewise run `vikunja buckets list` before creating a bucket.
 - Only pass `--yes` when the user explicitly asked for that deletion.
 - Quote arguments with spaces. Use single quotes around text containing `$` or backticks.

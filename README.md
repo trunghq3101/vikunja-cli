@@ -1,6 +1,6 @@
 # vikunja CLI
 
-A JSON-speaking command-line tool that lets AI agents in Claude Code manage a self-hosted [Vikunja](https://vikunja.io) instance: projects, tasks, labels and comments. It uses Vikunja API v2, passes Cloudflare Access with a service token, and supports one Vikunja bot account per agent.
+A JSON-speaking command-line tool that lets AI agents in Claude Code manage a self-hosted [Vikunja](https://vikunja.io) instance: projects, tasks, kanban buckets, labels and comments. It uses Vikunja API v2, passes Cloudflare Access with a service token, and supports one Vikunja bot account per agent.
 
 ## Requirements
 
@@ -8,7 +8,7 @@ A JSON-speaking command-line tool that lets AI agents in Claude Code manage a se
 - Node.js 20 or newer on `PATH`
 - Vikunja 2.4.0 or newer (API v2)
 - A Cloudflare Access service token allowed by the Vikunja application's policy
-- A Vikunja API token for each account the agents should use, with these permissions: `projects`, `tasks`, `labels`, `tasks_labels`, `tasks_comments`, and **Other → user**. This applies to bot-user tokens too (Settings → Bot Users), not just personal API tokens (Settings → API Tokens). A bot account only sees projects that have been shared with it, or that it creates itself.
+- A Vikunja API token for each account the agents should use, with these permissions: `projects`, `tasks`, `labels`, `tasks_labels`, `tasks_comments`, and **Other → user**, plus the project views and buckets permissions for `buckets` and `tasks move --bucket`. This applies to bot-user tokens too (Settings → Bot Users), not just personal API tokens (Settings → API Tokens). A bot account only sees projects that have been shared with it, or that it creates itself.
 
 ## Install in Claude Code
 

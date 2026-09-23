@@ -163,3 +163,55 @@ describe('tasks update/done/delete', () => {
     expect(r.out).toEqual({ deleted: true, id: 5 });
   });
 });
+
+describe('tasks move', () => {
+  it('--bucket places the task in a bucket of its project kanban view', async () => {
+    const h = await harness();
+    h.reply(
+      jsonResponse(200, task),
+      page([{ id: 8, title: 'Kanban', view_kind: 'kanban' }]),
+      jsonResponse(200, { task_id: 5, bucket_id: 21, bucket: { id: 21, title: 'Done' }, task: { ...task, done: true } }),
+      jsonResponse(200, { ...task, done: true }),
+    );
+    const r = await h.run('tasks', 'move', '5', '--bucket', '21');
+    expect(h.calls[0].url).toBe('https://vk.test/api/v2/tasks/5');
+    expect(h.calls[1].url).toBe('https://vk.test/api/v2/projects/4/views?page=1&per_page=50');
+    expect(h.calls[2]).toMatchObject({
+      method: 'PUT',
+      url: 'https://vk.test/api/v2/projects/4/views/8/buckets/21/tasks',
+      body: { task_id: 5 },
+    });
+    expect(h.calls[3].url).toBe('https://vk.test/api/v2/tasks/5?format=markdown');
+    expect(r.out).toMatchObject({ id: 5, done: true, view_id: 8, bucket_id: 21 });
+  });
+
+  it('--view skips the view lookup and reports the bucket the server chose', async () => {
+    const h = await harness();
+    h.reply(
+      jsonResponse(200, task),
+      jsonResponse(200, { task_id: 5, bucket: { id: 20, title: 'To Do' }, task }),
+      jsonResponse(200, task),
+    );
+    const r = await h.run('tasks', 'move', '5', '--bucket', '21', '--view', '9');
+    expect(h.calls[1]).toMatchObject({ method: 'PUT', url: 'https://vk.test/api/v2/projects/4/views/9/buckets/21/tasks' });
+    expect(r.out).toMatchObject({ view_id: 9, bucket_id: 20 });
+  });
+
+  it('--project patches project_id and re-reads the task', async () => {
+    const h = await harness();
+    h.reply(jsonResponse(200, { ...task, project_id: 6 }), jsonResponse(200, { ...task, project_id: 6 }));
+    const r = await h.run('tasks', 'move', '5', '--project', '6');
+    expect(h.calls[0]).toMatchObject({ method: 'PATCH', url: 'https://vk.test/api/v2/tasks/5', body: { project_id: 6 } });
+    expect(h.calls[1].url).toBe('https://vk.test/api/v2/tasks/5?format=markdown');
+    expect(r.out).toMatchObject({ id: 5, project_id: 6 });
+  });
+
+  it('needs exactly one of --bucket and --project', async () => {
+    const h = await harness();
+    expect((await h.run('tasks', 'move', '5')).code).toBe(2);
+    expect((await h.run('tasks', 'move', '5', '--bucket', '21', '--project', '6')).code).toBe(2);
+    expect((await h.run('tasks', 'move', '5', '--project', '6', '--view', '8')).code).toBe(2);
+    expect((await h.run('tasks', 'move', '5', '--bucket', 'done')).code).toBe(2);
+    expect(h.calls).toHaveLength(0);
+  });
+});

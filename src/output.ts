@@ -55,6 +55,10 @@ export function trimLabel(l: Obj): Obj {
   return { id: l.id, title: l.title, hex_color: l.hex_color ?? '' };
 }
 
+export function trimBucket(b: Obj): Obj {
+  return { id: b.id, title: b.title, limit: b.limit ?? 0 };
+}
+
 export function trimComment(c: Obj): Obj {
   return { id: c.id, author: username(c.author), created: c.created, comment: c.comment ?? '' };
 }

@@ -1,4 +1,5 @@
 import { Command, CommanderError } from 'commander';
+import { registerBuckets } from './commands/buckets';
 import { registerComments } from './commands/comments';
 import { registerLabels } from './commands/labels';
 import { registerProfile } from './commands/profile';
@@ -21,6 +22,7 @@ export function buildProgram(deps: Deps, captureErr: (text: string) => void = ()
   registerProjects(program, deps);
   registerTasks(program, deps);
   registerLabels(program, deps);
+  registerBuckets(program, deps);
   registerComments(program, deps);
   registerSetup(program, deps);
   registerProfile(program, deps);

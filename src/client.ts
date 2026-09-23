@@ -2,7 +2,7 @@ import type { Connection } from './config';
 import { CliError } from './errors';
 
 export type FetchFn = (url: string, init: RequestInit) => Promise<Response>;
-export type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export type QueryValue = string | number | boolean | undefined | Array<string | number>;
 export type Query = Record<string, QueryValue>;
 

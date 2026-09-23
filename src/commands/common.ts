@@ -89,6 +89,24 @@ export async function getCurrentUser(client: VikunjaClient): Promise<Obj> {
   }
 }
 
+// Buckets live in a project's kanban view. Most projects have exactly one, so --view is
+// optional: without it we use that one, and ask for --view when the choice is ambiguous.
+export async function resolveKanbanView(client: VikunjaClient, projectId: number, viewId?: number): Promise<number> {
+  if (viewId !== undefined) return viewId;
+  const views = await client.listAll<Obj>(`/projects/${projectId}/views`, {});
+  const kanban = views.items.filter((v) => v.view_kind === 'kanban');
+  if (kanban.length === 1) return kanban[0].id;
+  if (kanban.length === 0) {
+    throw new CliError(1, `project ${projectId} has no kanban view`, {
+      detail: 'buckets only exist in kanban views; add one to the project in Vikunja',
+    });
+  }
+  throw usageError(
+    `project ${projectId} has ${kanban.length} kanban views`,
+    `pass --view with one of: ${kanban.map((v) => `${v.id} (${v.title})`).join(', ')}`,
+  );
+}
+
 // A PATCH round-trips the whole resource, so the markdown header is only safe when the
 // description itself is being replaced. The re-read makes the printed result Markdown.
 export async function patchAndReread(client: VikunjaClient, path: string, patch: Obj): Promise<Obj> {

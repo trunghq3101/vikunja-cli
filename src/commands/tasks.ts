@@ -12,6 +12,7 @@ import {
   patchAndReread,
   requireChanges,
   requireYes,
+  resolveKanbanView,
   withApi,
   withList,
   type ListOptions,
@@ -122,6 +123,38 @@ export function registerTasks(program: Command, deps: Deps): void {
       print(deps, shapeOne(await patchAndReread(client, `/tasks/${taskId}`, { done }), Boolean(opts.full), detail));
     });
   }
+
+  withApi(tasks.command('move <id>').description('move a task to another kanban bucket or project'))
+    .option('--bucket <id>', "target bucket in the task's project")
+    .option('--view <id>', "kanban view of --bucket (default: the project's only kanban view)")
+    .option('--project <id>', 'target project')
+    .action(async (id: string, opts: ApiOptions & { bucket?: string; view?: string; project?: string }) => {
+      const taskId = parseId(id);
+      if ((opts.bucket === undefined) === (opts.project === undefined)) {
+        throw usageError('pass exactly one of --bucket, --project');
+      }
+      if (opts.project !== undefined) {
+        if (opts.view !== undefined) throw usageError('--view only applies with --bucket');
+        const projectId = parseId(opts.project, '--project');
+        const { client } = await apiContext(deps, opts);
+        const moved = await patchAndReread(client, `/tasks/${taskId}`, { project_id: projectId });
+        print(deps, shapeOne(moved, Boolean(opts.full), detail));
+        return;
+      }
+      const bucketId = parseId(opts.bucket!, '--bucket');
+      const viewId = opts.view === undefined ? undefined : parseId(opts.view, '--view');
+      const { client } = await apiContext(deps, opts);
+      const { project_id: projectId } = await client.request<Obj>('GET', `/tasks/${taskId}`);
+      const view = await resolveKanbanView(client, projectId, viewId);
+      const placed = await client.request<Obj>('PUT', `/projects/${projectId}/views/${view}/buckets/${bucketId}/tasks`, {
+        body: { task_id: taskId },
+      });
+      // Re-read for a Markdown description; the done bucket may also have changed `done`.
+      const task = await client.request<Obj>('GET', `/tasks/${taskId}`, { query: MARKDOWN });
+      // A repeating task moved into the done bucket is routed back to the default bucket.
+      const bucket = placed?.bucket?.id ?? bucketId;
+      print(deps, { ...shapeOne(task, Boolean(opts.full), detail), view_id: view, bucket_id: bucket });
+    });
 
   withApi(tasks.command('delete <id>').description('delete a task'))
     .option('--yes', 'confirm deletion')
