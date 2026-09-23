@@ -49,6 +49,7 @@ vikunja labels remove 345 7
 vikunja labels delete 7 --yes
 
 vikunja buckets list --project 12 [--view 8]
+vikunja buckets list --project 12 --tasks     # the board: every bucket with its tasks
 vikunja buckets create --project 12 [--view 8] --title "Review" [--limit 5]
 
 vikunja comments list 345
@@ -77,7 +78,7 @@ vikunja comments delete 345 81 --yes   # only the comment's author can delete it
 - Lists: `{"items": [...], "page": 1, "per_page": 50, "total_pages": 2, "total": 71}`.
 - Lists with `--all`: `{"items": [...], "total": 71}` (no `page`/`total_pages`), plus `"truncated": true` when capped at 5000 items.
 - Tasks: `id, title, done, project_id, due_date, priority, labels[{id,title}]`; `get`, `create` and `update` add `description, created, updated, done_at, created_by`.
-- Buckets: `id, title, limit` (0 means no limit). `tasks move --bucket` prints the task plus `view_id, bucket_id`.
+- Buckets: `id, title, limit` (0 means no limit). With `--tasks`: `{"items": [{id, title, limit, count, tasks: [...]}], "total": N}`, not paginated, so `--page`, `--per-page` and `--all` are rejected. `tasks move --bucket` prints the task plus `view_id, bucket_id`.
 - Unset dates are `null`. Descriptions and comments are Markdown.
 
 ## Exit codes

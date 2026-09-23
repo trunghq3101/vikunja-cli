@@ -35,6 +35,7 @@ const USED_ENDPOINTS: Array<[string, string]> = [
   ['get', '/projects/{project}/views/{view}/buckets'],
   ['post', '/projects/{project}/views/{view}/buckets'],
   ['put', '/projects/{project}/views/{view}/buckets/{bucket}/tasks'],
+  ['get', '/projects/{project}/views/{view}/buckets/tasks'],
 ];
 
 // Path parameter names differ between server versions ({projecttask} vs {task}); only the shape matters.
@@ -161,6 +162,9 @@ describe.runIf(Boolean(PROFILE))('live smoke test', () => {
     expect(buckets.items.map((b: { id: number }) => b.id)).toContain(bucket.id);
     const bucketed = await api('tasks', 'move', taskId, '--bucket', String(bucket.id));
     expect(bucketed).toMatchObject({ id: created.id, bucket_id: bucket.id });
+    const board = await api('buckets', 'list', '--project', pid, '--tasks');
+    const inBucket = board.items.find((b: { id: number }) => b.id === bucket.id);
+    expect(inBucket.tasks.map((t: { id: number }) => t.id)).toContain(created.id);
 
     const other = await api('projects', 'create', '--title', `vikunja-cli-smoke-${stamp}-other`);
     otherProjectId = other.id;

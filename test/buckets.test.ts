@@ -41,6 +41,37 @@ describe('buckets list', () => {
     expect(r.err.title).toBe('project 4 has no kanban view');
   });
 
+  it('--tasks lists every bucket with its tasks', async () => {
+    const h = await harness();
+    const task = { id: 5, title: 'Write spec', done: false, project_id: 4, due_date: '0001-01-01T00:00:00Z', priority: 2, labels: null };
+    h.reply(
+      page([view(8, 'Kanban', 'kanban')]),
+      jsonResponse(200, { items: [{ ...bucket, count: 1, tasks: [task] }, { ...bucket, id: 22, title: 'Done', count: 0, tasks: null }], total: 2 }),
+    );
+    const r = await h.run('buckets', 'list', '--project', '4', '--tasks');
+    expect(h.calls[1].url).toBe('https://vk.test/api/v2/projects/4/views/8/buckets/tasks?format=markdown');
+    expect(r.out).toEqual({
+      items: [
+        {
+          id: 21,
+          title: 'Doing',
+          limit: 0,
+          count: 1,
+          tasks: [{ id: 5, title: 'Write spec', done: false, project_id: 4, due_date: null, priority: 2, labels: [] }],
+        },
+        { id: 22, title: 'Done', limit: 0, count: 0, tasks: [] },
+      ],
+      total: 2,
+    });
+  });
+
+  it('--tasks rejects pagination flags', async () => {
+    const h = await harness();
+    expect((await h.run('buckets', 'list', '--project', '4', '--tasks', '--all')).code).toBe(2);
+    expect((await h.run('buckets', 'list', '--project', '4', '--tasks', '--page', '2')).code).toBe(2);
+    expect(h.calls).toHaveLength(0);
+  });
+
   it('requires --project', async () => {
     const h = await harness();
     expect((await h.run('buckets', 'list', '--view', '8')).code).toBe(2);
